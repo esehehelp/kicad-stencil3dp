@@ -1,0 +1,6 @@
+.claude
+/sample/*
+.venv
+uv.lock
+__pycache__/
+*.pyc
