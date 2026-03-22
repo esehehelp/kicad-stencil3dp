@@ -32,7 +32,7 @@ uv run ruff check stencil3dp/   # lint
 ## インストール
 
 ```bash
-python install.py
+uv run install.py
 ```
 
 `stencil3dp/` フォルダと `gen_stl.scad` を KiCadプラグインディレクトリへコピーします。
