@@ -47,7 +47,7 @@ class StencilPlugin(pcbnew.ActionPlugin):
 
         # Lazy import to keep startup fast
         from .dialog import StencilDialog
-        from . import dxf_exporter
+        from . import scad_generator
         from .openscad_runner import OpenScadRunner
 
         dlg = StencilDialog(None, board_dir=board_dir)
@@ -78,47 +78,25 @@ class StencilPlugin(pcbnew.ActionPlugin):
                 if not proceed:
                     return
 
-        # DXF export (restore aux origin in finally)
-        orig_aux = board.GetAuxOrigin()
+        # Generate SCAD directly from pad geometry (no DXF needed)
+        scad_path, w, h = scad_generator.generate(board, layer, cfg, output_dir)
+        stl_path = os.path.splitext(scad_path)[0] + ".stl"
+
+        runner = OpenScadRunner(cfg.get("openscad_path") or None)
         try:
-            dxf_path, w, h = dxf_exporter.export(board, layer, output_dir)
-        finally:
-            board.SetAuxOrigin(orig_aux)
-
-        # OpenSCAD rendering
-        stl_path = os.path.splitext(dxf_path)[0] + ".stl"
-        scad_path = os.path.join(os.path.dirname(__file__), "..", "gen_stl.scad")
-        scad_path = os.path.normpath(scad_path)
-
-        if cfg.get("run_openscad"):
-            runner = OpenScadRunner(cfg.get("openscad_path") or None)
-            try:
-                runner.render(
-                    scad_path, dxf_path, stl_path,
-                    width=w, height=h,
-                    thickness=cfg["thickness_mm"],
-                    offset=cfg["offset_mm"],
-                    pin_dia=cfg["pin_dia"] if cfg["pin_holes"] else 0,
-                    pin_margin=cfg.get("pin_margin", 3.0),
-                )
-                msg = f"Stencil generated:\n\nDXF: {dxf_path}\nSTL: {stl_path}"
-            except FileNotFoundError:
-                msg = (
-                    f"OpenSCAD not found at: {runner.openscad_path}\n\n"
-                    f"DXF saved to: {dxf_path}\n\n"
-                    f"Run manually:\n"
-                    f"openscad -D 'source=\"{dxf_path}\"' "
-                    f"-D 'width={w}' -D 'height={h}' "
-                    f"-D 'thickness={cfg['thickness_mm']}' "
-                    f"-D 'offset={cfg['offset_mm']}' "
-                    f"-o \"{stl_path}\" \"{scad_path}\""
-                )
-            except subprocess.CalledProcessError as e:
-                msg = (
-                    f"OpenSCAD failed (exit {e.returncode}):\n{e.stderr}\n\n"
-                    f"DXF saved to: {dxf_path}"
-                )
-        else:
-            msg = f"DXF saved to:\n{dxf_path}"
+            runner.render(scad_path, stl_path)
+            msg = f"Stencil generated:\n\nSCAD: {scad_path}\nSTL:  {stl_path}"
+        except FileNotFoundError:
+            msg = (
+                f"OpenSCAD not found at: {runner.openscad_path}\n\n"
+                f"SCAD saved to: {scad_path}\n\n"
+                f"Run manually:\n"
+                f"openscad --render -o \"{stl_path}\" \"{scad_path}\""
+            )
+        except subprocess.CalledProcessError as e:
+            msg = (
+                f"OpenSCAD failed (exit {e.returncode}):\n{e.stderr}\n\n"
+                f"SCAD saved to: {scad_path}"
+            )
 
         wx.MessageBox(msg, "Stencil 3DP", wx.OK | wx.ICON_INFORMATION)

@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import wx
 
 
@@ -10,17 +11,33 @@ PREFS_PATH = os.path.join(
     "kicad", "stencil3dp_prefs.json"
 )
 
+
+def _default_openscad_path():
+    found = shutil.which("openscad")
+    if found:
+        return found
+    candidates = [
+        r"C:\Program Files\OpenSCAD (Nightly)\openscad.exe",
+        r"C:\Program Files\OpenSCAD\openscad.exe",
+        r"C:\Program Files (x86)\OpenSCAD\openscad.exe",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
+    return ""
+
+
 DEFAULTS = {
-    "layer":         "F.Paste",
-    "thickness_mm":  0.16,
-    "offset_mm":     0.10,
-    "pin_holes":     True,
-    "pin_dia":       1.5,
-    "pin_margin":    3.0,
+    "layer":           "F.Paste",
+    "thickness_mm":    0.16,
+    "offset_mm":       -0.05,
+    "pin_holes":       True,
+    "pin_dia":         1.5,
+    "pin_margin":      3.0,
     "warn_fine_pitch": True,
-    "output_dir":    "",
-    "openscad_path": "",
-    "run_openscad":  True,
+    "output_dir":      "",
+    "openscad_path":   _default_openscad_path(),
+    "run_openscad":    True,
 }
 
 
@@ -146,6 +163,11 @@ class StencilDialog(wx.Dialog):
         ok_btn.Bind(wx.EVT_BUTTON, self._on_ok)
 
         panel.SetSizer(sizer)
+
+        # Connect panel to dialog so Fit() works correctly
+        dlg_sizer = wx.BoxSizer(wx.VERTICAL)
+        dlg_sizer.Add(panel, proportion=1, flag=wx.EXPAND)
+        self.SetSizer(dlg_sizer)
 
     # ------------------------------------------------------------------
     def _load_into_ui(self):

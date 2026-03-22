@@ -13,6 +13,7 @@ def _find_openscad():
     # Common Windows install location
     import os
     candidates = [
+        r"C:\Program Files\OpenSCAD (Nightly)\openscad.exe",
         r"C:\Program Files\OpenSCAD\openscad.exe",
         r"C:\Program Files (x86)\OpenSCAD\openscad.exe",
     ]
@@ -26,9 +27,8 @@ class OpenScadRunner:
     def __init__(self, openscad_path=None):
         self.openscad_path = openscad_path or _find_openscad()
 
-    def render(self, scad_path, dxf_path, stl_path,
-               width, height, thickness, offset, pin_dia=1.5, pin_margin=3.0):
-        """Run OpenSCAD to generate an STL from a SCAD + DXF pair.
+    def render(self, scad_path, stl_path):
+        """Run OpenSCAD to generate an STL from a self-contained SCAD file.
 
         Raises:
             FileNotFoundError: if openscad executable not found.
@@ -36,13 +36,7 @@ class OpenScadRunner:
         """
         cmd = [
             self.openscad_path,
-            "-D", f'source="{dxf_path}"',
-            "-D", f"width={width}",
-            "-D", f"height={height}",
-            "-D", f"thickness={thickness}",
-            "-D", f"offset={offset}",
-            "-D", f"pin_dia={pin_dia}",
-            "-D", f"pin_margin={pin_margin}",
+            "--render",
             "-o", stl_path,
             scad_path,
         ]

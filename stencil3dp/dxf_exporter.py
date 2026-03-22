@@ -17,7 +17,7 @@ def export(board, layer, output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     bbox = board.GetBoardEdgesBoundingBox()
-    board.SetAuxOrigin(pcbnew.VECTOR2I(bbox.GetLeft(), bbox.GetTop()))
+    board.GetDesignSettings().SetAuxOrigin(pcbnew.VECTOR2I(bbox.GetLeft(), bbox.GetTop()))
 
     pctl = pcbnew.PLOT_CONTROLLER(board)
     popt = pctl.GetPlotOptions()
