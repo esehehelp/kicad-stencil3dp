@@ -84,6 +84,23 @@ make run \
   THICKNESS=0.16 OFFSET=-0.05
 ```
 
+## スライサープリセット
+
+`presets/` フォルダにBambu Studioのプリセットファイルを用意しています。
+
+| ファイル | プリンター | ノズル | レイヤー高さ |
+|---|---|---|---|
+| `Bambu Lab A1 0.2 nozzle.bbscfg` | Bambu Lab A1 | 0.2mm | 0.06mm |
+
+### インポート手順（Bambu Studio）
+
+1. Bambu Studioを開く
+2. **File → Import → Import Configs** を選択
+3. `presets/Bambu Lab A1 0.2 nozzle.bbscfg` を選択
+
+プロセス名 **`0.06mm Print Stencil @BBL A1 0.2 nozzle`** がインポートされます。
+0.2mmノズルで0.06mmの薄層印刷を行うステンシル専用設定です。
+
 ## ライセンス
 
 MIT
