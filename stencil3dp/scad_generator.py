@@ -4,6 +4,74 @@ import os
 import pcbnew
 
 
+def _paste_size_mm(pad, fp, board):
+    """Return (pw_mm, ph_mm) of the actual paste aperture, applying paste margins.
+
+    Mirrors PLOT_CONTROLLER behaviour: pad margin → footprint margin → board margin.
+    Returns (None, None) if the effective aperture vanishes (margin too negative).
+    Falls back to raw copper pad size if any API call fails.
+    """
+    try:
+        def _margin():
+            for getter in (pad.GetLocalSolderPasteMargin,
+                           fp.GetLocalSolderPasteMargin):
+                try:
+                    v = int(getter())
+                    if v != 0:
+                        return pcbnew.ToMM(v)
+                except Exception:
+                    pass
+            try:
+                ds = board.GetDesignSettings()
+                for attr in ("m_SolderPasteMargin", "GetSolderPasteMargin"):
+                    if hasattr(ds, attr):
+                        raw = getattr(ds, attr)
+                        v = raw() if callable(raw) else raw
+                        return float(pcbnew.ToMM(int(v)))
+            except Exception:
+                pass
+            return 0.0
+
+        def _ratio():
+            for getter in (pad.GetLocalSolderPasteMarginRatio,
+                           fp.GetLocalSolderPasteMarginRatio):
+                try:
+                    v = float(getter())
+                    if v != 0.0:
+                        return v
+                except Exception:
+                    pass
+            try:
+                ds = board.GetDesignSettings()
+                for attr in ("m_SolderPasteMarginRatio", "GetSolderPasteMarginRatio"):
+                    if hasattr(ds, attr):
+                        raw = getattr(ds, attr)
+                        return float(raw() if callable(raw) else raw)
+            except Exception:
+                pass
+            return 0.0
+
+        margin = float(_margin())
+        ratio  = float(_ratio())
+        size   = pad.GetSize()
+        pw_cu  = float(pcbnew.ToMM(size.x))
+        ph_cu  = float(pcbnew.ToMM(size.y))
+
+        pw = pw_cu + 2.0 * (margin + ratio * pw_cu)
+        ph = ph_cu + 2.0 * (margin + ratio * ph_cu)
+
+        if pw <= 0 or ph <= 0:
+            return None, None
+        return pw, ph
+
+    except Exception:
+        # Fallback: use raw copper pad size
+        size  = pad.GetSize()
+        pw_cu = float(pcbnew.ToMM(size.x))
+        ph_cu = float(pcbnew.ToMM(size.y))
+        return pw_cu, ph_cu
+
+
 def _get_angle_deg(pad):
     try:
         return pad.GetOrientation().AsDegrees()
@@ -44,13 +112,39 @@ def _pad_scad(x, y, pw, ph, angle, shape, pad, offset):
             rr = pcbnew.ToMM(pad.GetRoundRectCornerRadius())
         except Exception:
             rr = min(pw, ph) * pad.GetRoundRectRadiusRatio() / 2
-        ew = max(pw - 2 * rr, 0)
-        eh = max(ph - 2 * rr, 0)
+        ew = pw - 2 * rr
+        eh = ph - 2 * rr
         total_r = max(rr + offset, 0.01)
-        return (
-            f"translate([{x:.4f},{y:.4f}]) rotate([0,0,{a:.4f}])\n"
-            f"  offset(r={total_r:.4f},$fn=32) square([{ew:.4f},{eh:.4f}],center=true);"
-        )
+        # If either inner dimension is zero or negative the pad is stadium-shaped;
+        # fall back to the hull-of-two-circles approach to avoid degenerate geometry.
+        if ew <= 0 and eh <= 0:
+            # Fully circular
+            return f"translate([{x:.4f},{y:.4f}]) circle(r={total_r:.4f},$fn=32);"
+        elif ew <= 0:
+            # Stadium along Y axis
+            dy = eh / 2
+            return (
+                f"translate([{x:.4f},{y:.4f}]) rotate([0,0,{a:.4f}])\n"
+                f"  hull(){{\n"
+                f"    translate([0,{dy:.4f}]) circle(r={total_r:.4f},$fn=32);\n"
+                f"    translate([0,{-dy:.4f}]) circle(r={total_r:.4f},$fn=32);\n"
+                f"  }}"
+            )
+        elif eh <= 0:
+            # Stadium along X axis
+            dx = ew / 2
+            return (
+                f"translate([{x:.4f},{y:.4f}]) rotate([0,0,{a:.4f}])\n"
+                f"  hull(){{\n"
+                f"    translate([{dx:.4f},0]) circle(r={total_r:.4f},$fn=32);\n"
+                f"    translate([{-dx:.4f},0]) circle(r={total_r:.4f},$fn=32);\n"
+                f"  }}"
+            )
+        else:
+            return (
+                f"translate([{x:.4f},{y:.4f}]) rotate([0,0,{a:.4f}])\n"
+                f"  offset(r={total_r:.4f},$fn=32) square([{ew:.4f},{eh:.4f}],center=true);"
+            )
 
     else:
         # RECT, TRAPEZOID, CHAMFERED_RECT, CUSTOM → bounding rectangle
@@ -94,9 +188,11 @@ def generate(board, layer, cfg, output_dir):
             if mirror:
                 x_mm = w_mm - x_mm
 
-            size = pad.GetSize()
-            pw   = pcbnew.ToMM(size.x)
-            ph   = pcbnew.ToMM(size.y)
+            # Use paste-margin-adjusted size (mirrors PLOT_CONTROLLER behaviour)
+            pw, ph = _paste_size_mm(pad, fp, board)
+            if pw is None:
+                continue  # paste margin makes aperture vanish; skip
+
             angle = _get_angle_deg(pad)
 
             snippet = _pad_scad(
