@@ -1,7 +1,7 @@
 """Subprocess wrapper for OpenSCAD CLI."""
 
-import subprocess
 import shutil
+import subprocess
 
 
 def _find_openscad():

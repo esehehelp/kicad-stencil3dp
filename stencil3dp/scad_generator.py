@@ -1,6 +1,7 @@
 """Generate self-contained OpenSCAD stencil file from KiCad pad geometry."""
 
 import os
+
 import pcbnew
 
 

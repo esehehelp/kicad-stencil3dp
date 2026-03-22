@@ -1,0 +1,29 @@
+[project]
+name = "kicad-stencil3dp"
+version = "0.1.0"
+description = "KiCad ActionPlugin to generate 3D-printable solder paste stencil STL via OpenSCAD"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+
+# pcbnew and wx are provided by KiCad's bundled Python — no PyPI deps.
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/esehehelp/kicad-stencil3dp"
+
+[dependency-groups]
+dev = [
+    "pyflakes>=3.0",
+    "ruff>=0.4",
+]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]

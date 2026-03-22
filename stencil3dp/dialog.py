@@ -3,8 +3,8 @@
 import json
 import os
 import shutil
-import wx
 
+import wx
 
 PREFS_PATH = os.path.join(
     os.environ.get("APPDATA", os.path.expanduser("~")),

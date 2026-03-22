@@ -2,9 +2,9 @@
 
 import os
 import subprocess
+
 import pcbnew
 import wx
-
 
 LAYER_MAP = {
     "F.Paste": pcbnew.F_Paste,
@@ -46,8 +46,8 @@ class StencilPlugin(pcbnew.ActionPlugin):
         board_dir  = os.path.dirname(board_path) if board_path else os.getcwd()
 
         # Lazy import to keep startup fast
-        from .dialog import StencilDialog
         from . import scad_generator
+        from .dialog import StencilDialog
         from .openscad_runner import OpenScadRunner
 
         dlg = StencilDialog(None, board_dir=board_dir)
